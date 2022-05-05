@@ -1,0 +1,419 @@
+---
+title: "Proyecto"
+author: "Rodriguez Nuñez Martin"
+date: "14/9/2021"
+output: html_document
+---
+
+```{r}
+library(haven)
+library(lavaan)
+library (semPlot)
+```
+
+# 1. Objetivo.
+
+Construir un modelo estructural completo para el siguiente caso:
+
+**Continuidad de empresas familiares**
+
+Se conoce que las empresas familiares tienen una menor continuidad del negocio empresario por conflictos en el seno familiar que requieren de consensos para elaborar un “protocolo familiar”.
+
+Se determinan los siguientes constructos: *Conflicto*, *Proceso P* y *Consen*.
+
+Las variables observadas están en escala Likert de 1 (muy de acuerdo) a 7 (muy en descuerdo).
+
+# 2. Hipotesis.
+
+**H1:**    Las variables directamente observables elegidas miden correctamente las variables latentes subyacentes en ellas.
+
+**H2:**    El constructo *Proceso P* contribuye a la continuidad de las empresas familiares.
+
+**H3:**    El constructo *Consenso* contribuye a la continuidad de las empresas familiares.
+
+**H4:**    El constructo *Conflicto* contribuye a la continuidad de las empresas familiares.
+
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+# Cargamos los datos
+# Uso setwd() para setear mi working directory
+#setwd("C:/Users/Usuario/Google Drive (juancbellassai@mi.unc.edu.ar)/MEA/Cursos/4to Cuatri/Proyecto de Analisis de Datos II/Materiales/CB_SEM/Actividades")
+
+datos<- readxl::read_xls("Base_fam.xls")
+```
+
+# 3. Estimación de modelo SEM en dos etapas.
+
+Primero definimos un modelo de referencia que incluya todas las variables con el fin de comparar los posteriores modelos competidores que se definirán entresacando variables del modelo de referencia y variando supuestos.
+
+Consideramos que las metricas mas importantes para determinar si un modelo es aceptable o no son: 
+* *CFIrobust*  
+* *Ratio de Chi-2*
+* *rmsea*
+* *srmr*
+
+Para la inclusión de las variables observables se tomarán como un criterio límite de las caras estandarizadas un valor mínimo de *0.7*.
+
+## 3.1. Modelo de Referencia (*fit0*).
+
+Este modelo contempla todas las variables observadas que forman las tres variables latentes.
+
+```{r echo=TRUE, results='hide'}
+cfa_fit <-'
+  conflicto =~ 1 * C20 + C21 + C22 + C25 + C32 + C34
+  procesop =~ 1 * C24 + C38 
+  concenso =~ 1 * C27 + C28 + C29 + C30
+
+  #Varianza de los Factores
+  conflicto~~conflicto
+  procesop~~procesop
+  concenso~~concenso
+
+  #Varianzas y covarianzas de los errores
+  C20~~C20
+  C21~~C21
+  C22~~C22
+  C25~~C25
+  C32~~C32
+  C34~~C34
+
+  C24~~C24
+  C38~~C38
+  
+  C27~~C27
+  C28~~C28
+  C29~~C29
+  C30~~C30
+'
+fit0 <- lavaan(cfa_fit, data=datos, std.lv=TRUE, mimic="eqs", estimator="MLM", verbose=TRUE, warn=TRUE)
+a<-summary (fit0, fit.measures=TRUE, standardized=TRUE, rsquare=TRUE)
+```
+
+Las métricas de *fit0* fueron:
+
+```{r , echo=FALSE}
+print(paste("CFIrobust=",a[["FIT"]][["cfi.robust"]]))
+print(paste("RATIO=",a[["FIT"]][["chisq.scaled"]]/a[["FIT"]][["df"]]))
+print(paste("rmsea=",a[["FIT"]][["rmsea.robust"]]))
+print(paste("srmr=",a[["FIT"]][["srmr"]]))
+```
+
+Las métricas alcanzadas por *fit0* se encuentran lejanas a las deseadas. Para la metrica *CFIrobust* se busca un valor mayor o igual a *0.95* para ser aceptable. Para el *Ratio de Chi-2* se busca un valor menor o igual a *5* para ser aceptable. Para *rmsea* se busca un valor menor a *0.08*. Por último, para *srmr* se espera un valor menor o igual a *0.1*.
+
+Por lo que podemos decir que el modelo no es aceptable y buscamos un mejor modelo.
+
+## 3.2. Modelo competidor 1 (*fit1*).
+
+Para *fit1* procedemos a borrar la variable *C27* que forma parte del constructo *Consenso* a pesar de ser la segunda que presenta menor carga estandarizada, dado que la de menor carga es la *C24* que forma parte del constructo *Proceso*, el cual se conforma solamente de dos variables observables y dejaría de tener sentido la construcción de una variable latente formada por una sola variable observable.
+
+```{r echo=TRUE, results='hide'}
+# Completo luego de ver que dejo y que no y porque
+cfa_fit <-'
+  conflicto =~ 1 * C20 + C21 + C22 + C25 + C32 + C34
+  procesop =~ 1 * C24 + C38 
+  concenso =~ 1 *  C28 + C29 + C30
+
+  #Varianza de los Factores
+  conflicto~~conflicto
+  procesop~~procesop
+  concenso~~concenso
+
+  #Varianzas y covarianzas de los errores
+  C20~~C20
+  C21~~C21
+  C22~~C22
+  C25~~C25
+  C32~~C32
+  C34~~C34
+
+  C24~~C24
+  C38~~C38
+  
+  C28~~C28
+  C29~~C29
+  C30~~C30
+'
+fit1 <- lavaan(cfa_fit, data=datos, std.lv=TRUE, mimic="eqs", estimator="MLM", verbose=TRUE, warn=TRUE)
+a1<-summary (fit1, fit.measures=TRUE, standardized=TRUE, rsquare=TRUE)
+```
+
+Las métricas de *fit1* fueron:
+
+```{r , echo=FALSE}
+print(paste("CFIrobust=",a1[["FIT"]][["cfi.robust"]]))
+print(paste("RATIO=",a1[["FIT"]][["chisq.scaled"]]/a1[["FIT"]][["df"]]))
+print(paste("rmsea=",a1[["FIT"]][["rmsea.robust"]]))
+print(paste("srmr=",a1[["FIT"]][["srmr"]]))
+```
+Se observa que las metricas empreoraron respecto a *fit0*. Particularmente las métricas de *Ratio Chi-2* y *rmsea*. Por lo tanto, descartamos el modelo *fit1*.
+
+## 3.3. Modelo competidor 2 (*fit2*).
+
+Para este caso, a pesar del criterio explicado anteriormente, procedemos descartando *C24* y volvemos a introducir *C27*.
+
+```{r echo=TRUE, results='hide'}
+# Completo luego de ver que dejo y que no y porque
+cfa_fit <-'
+  conflicto =~ 1 * C20 + C21 + C22 + C25 + C32 + C34
+  procesop =~ 1 *  C38 
+  concenso =~ 1 * C27 + C28 + C29 + C30
+
+  #Varianza de los Factores
+  conflicto~~conflicto
+  procesop~~procesop
+  concenso~~concenso
+
+  #Varianzas y covarianzas de los errores
+  C20~~C20
+  C21~~C21
+  C22~~C22
+  C25~~C25
+  C32~~C32
+  C34~~C34
+
+  C38~~C38
+  
+  C27~~C27
+  C28~~C28
+  C29~~C29
+  C30~~C30
+'
+fit2 <- lavaan(cfa_fit, data=datos, std.lv=TRUE, mimic="eqs", estimator="MLM", verbose=TRUE, warn=TRUE)
+a2<-summary (fit2, fit.measures=TRUE, standardized=TRUE, rsquare=TRUE)
+```
+
+Las métricas de *fit2* fueron:
+
+```{r, echo=FALSE}
+print(paste("CFIrobust=",a2[["FIT"]][["cfi.robust"]]))
+
+print(paste("RATIO=",a2[["FIT"]][["chisq.scaled"]]/a2[["FIT"]][["df"]]))
+
+print(paste("rmsea=",a2[["FIT"]][["rmsea.robust"]]))
+print(paste("srmr=",a2[["FIT"]][["srmr"]]))
+```
+
+Vemos que todas las métricas mejoran respeco a los dos modelos anteriores, pero la única métrica aceptable es *Ratio Chi-2* con un valor menor o igual que *5*.
+
+* C38 vuelve a dar mal , vamos a sacarla y ver si es correcto conciderar al constructo *Proceso P*.
+
+## 3.4. Modelo competidor 3 (*fit3*).
+
+Para *fit3*, decidimos eliminar la variable *C38* dado que presentaba la siguiente menor carga estandarizada más baja con un valor de *0.541*. De esta forma, eliminamos por completo el constructo *Proceso P*.
+
+```{r echo=TRUE, results='hide'}
+# Completo luego de ver que dejo y que no y porque
+cfa_fit <-'
+  conflicto =~ 1 * C20 + C21 + C22 + C25 + C32 + C34
+  concenso =~ 1 * C27 + C28 + C29 + C30
+
+  #Varianza de los Factores
+  conflicto~~conflicto
+  concenso~~concenso
+
+  #Varianzas y covarianzas de los errores
+  C20~~C20
+  C21~~C21
+  C22~~C22
+  C25~~C25
+  C32~~C32
+  C34~~C34
+  
+  C27~~C27
+  C28~~C28
+  C29~~C29
+  C30~~C30
+'
+fit3 <- lavaan(cfa_fit, data=datos, std.lv=TRUE, mimic="eqs", estimator="MLM", verbose=TRUE, warn=TRUE)
+
+#Elementos de Salida----
+a3<-summary (fit3, fit.measures=TRUE, standardized=TRUE, rsquare=TRUE)
+```
+
+Las métricas de *fit3* fueron:
+
+```{r , echo=FALSE}
+print(paste("CFIrobust=",a3[["FIT"]][["cfi.robust"]]))
+print(paste("RATIO=",a3[["FIT"]][["chisq.scaled"]]/a3[["FIT"]][["df"]]))
+print(paste("rmsea=",a3[["FIT"]][["rmsea.robust"]]))
+print(paste("srmr=",a3[["FIT"]][["srmr"]]))
+```
+Se observa que los índices mejoran. Sin embargo, el único índce que cumple es el *Ratio Chic-2*.
+
+## 3.5. Modelo competidor 4 (*fit4*).
+
+Procedemos a sacar la variable C27 para ver si mejora el modelo, ya que es la variable con menor carga estandarizada.
+
+```{r echo=TRUE, results='hide'}
+cfa_fit <-'
+  conflicto =~ 1 * C20 + C21 + C22 + C25 + C32 + C34
+  concenso =~ 1 *  C28 + C29 + C30
+
+  #Varianza de los Factores
+  conflicto~~conflicto
+  concenso~~concenso
+
+  #Varianzas y covarianzas de los errores
+  C20~~C20
+  C21~~C21
+  C22~~C22
+  C25~~C25
+  C32~~C32
+  C34~~C34
+  
+  C28~~C28
+  C29~~C29
+  C30~~C30
+'
+fit4 <- lavaan(cfa_fit, data=datos, std.lv=TRUE, mimic="eqs", estimator="MLM", verbose=TRUE, warn=TRUE)
+
+#Elementos de Salida----
+a4<-summary (fit4, fit.measures=TRUE, standardized=TRUE, rsquare=TRUE)
+```
+
+Las métricas de *fit4* fueron:
+
+```{r echo=FALSE}
+print(paste("CFIrobust=",a4[["FIT"]][["cfi.robust"]]))
+print(paste("RATIO=",a4[["FIT"]][["chisq.scaled"]]/a4[["FIT"]][["df"]]))
+print(paste("rmsea=",a4[["FIT"]][["rmsea.robust"]]))
+print(paste("srmr=",a4[["FIT"]][["srmr"]]))
+```
+
+Las métricas obtenidas empeoran respecto al modelo *fit3*. Por lo que no consideramos pertinente eliminar la variable *C27*.
+
+Antes de dicidir finalmente la eliminación del constructo *Proceso P*, procedemos a considerar covarianzas entre los errores, lo cual se decidió en función al análisis de la matriz de correlación de Pearson.
+
+## Correlacion
+```{r echo=TRUE}
+# Analizamos correlacion entre las variables
+library(ggplot2)
+library(ggcorrplot)
+#resid(fit0, "cor")
+ggcorrplot(residuals(fit0, type="cor")$cov, type="lower")
+```
+
+A partir del gráfico vemos que las variables observables que forman parte de los constructos de *Proceso P* y *Consenso* se encuentran mayormente correlacionados, por lo que decidimos agregar al modelo *fit5* una interralación entre estos constructos.
+
+## 3.6. Modelo competidor 5 (*fit5*).
+
+```{r echo=TRUE ,results='hide'}
+# Completo luego de ver que dejo y que no y porque
+cfa_fit <-'
+  conflicto =~ 1 * C20 + C21 + C22 + C25 + C32 + C34
+  procesop =~ 1 * C24 + C38 
+  concenso =~ 1 * C27 + C28 + C29 + C30
+
+  #Varianza de los Factores
+  conflicto~~conflicto
+  procesop~~procesop
+  concenso~~concenso
+
+  #Modelo de relaciones
+  concenso~procesop
+
+  #Varianzas y covarianzas de los errores
+  C20~~C20
+  C21~~C21
+  C22~~C22
+  C25~~C25
+  C32~~C32
+  C34~~C34
+
+  C24~~C24
+  C38~~C38
+  
+  C27~~C27
+  C28~~C28
+  C29~~C29
+  C30~~C30
+'
+fit5 <- lavaan(cfa_fit, data=datos, std.lv=TRUE, mimic="eqs", estimator="MLM", verbose=TRUE, warn=TRUE)
+
+#Elementos de Salida----
+a5<-summary (fit5, fit.measures=TRUE, standardized=TRUE, rsquare=TRUE)
+
+```
+
+Las métricas de *fit5* fueron:
+
+```{r, echo=FALSE}
+print(paste("CFIrobust=",a5[["FIT"]][["cfi.robust"]]))
+print(paste("RATIO=",a5[["FIT"]][["chisq.scaled"]]/a5[["FIT"]][["df"]]))
+print(paste("rmsea=",a5[["FIT"]][["rmsea.robust"]]))
+print(paste("srmr=",a5[["FIT"]][["srmr"]]))
+```
+Las metricas emperoran, por lo tanto decimos que es pertinente eliminar el constructo *Proceso P*.
+
+## 3.7. Modelo competidor 6 (*fit6*).
+
+Dado que hay una correlación baja pero aceptable entre los constructos *Conflicto* y *Consenso*, decidimos considerar la relación en el modelo pero sin el constructo *Proceso P*, que hemos determinado que no es relevante al explicar la continuidad de empresas familiares.
+
+```{r echo=TRUE, results='hide'}
+# Completo luego de ver que dejo y que no y porque
+cfa_fit <-'
+  conflicto =~ 1 * C20 + C21 + C22 + C25 + C32 + C34
+  concenso =~ 1 * C27 + C28 + C29 + C30
+
+  #Varianza de los Factores
+  conflicto~~conflicto
+  concenso~~concenso
+  
+  #Modelo de relaciones
+  concenso~conflicto
+
+  #Varianzas y covarianzas de los errores
+  C20~~C20
+  C21~~C21
+  C22~~C22
+  C25~~C25
+  C32~~C32
+  C34~~C34
+
+  
+  C27~~C27
+  C28~~C28
+  C29~~C29
+  C30~~C30
+
+'
+fit6 <- lavaan(cfa_fit, data=datos, std.lv=TRUE, mimic="eqs", estimator="MLM", verbose=TRUE, warn=TRUE)
+
+#Elementos de Salida----
+a6<-summary (fit6, fit.measures=TRUE, standardized=TRUE, rsquare=TRUE)
+```
+
+Las métricas de *fit6* fueron:
+
+```{r, echo=FALSE}
+print(paste("CFIrobust=",a6[["FIT"]][["cfi.robust"]]))
+print(paste("RATIO=",a6[["FIT"]][["chisq.scaled"]]/a6[["FIT"]][["df"]]))
+print(paste("rmsea=",a6[["FIT"]][["rmsea.robust"]]))
+print(paste("srmr=",a6[["FIT"]][["srmr"]]))
+```
+
+Las métricas mejoraron considerablemente. Los índices *CFIrobust*, *Ratio Chi-2* y *rmsea* están dentro los valores aceptables. Por lo tanto, se considera pertinente eliminar el constructo *Procesos P* y la relación entre los constructos *Consenso y Conflicto*.
+
+
+
+# Conclusiones.
+
+Seleccionamos el modelo *fit6* dado que es el que mejores métricas presenta. Se contempla la interacción entre los constructos *Consenso* y *Conflicto* y podemos ver que es el que mejor representa la continuidad de empresas familiares.
+
+H1: La hipotesis 1 no se verifica como consecuencia de que a lo largo del proceso de ajuste del modelo nos vimos forzados a eliminar el constructo *Proceso P* para lograr un mejor ajuste del modelo, con lo cual las variables observadas no mide correctametne a la variable latente subyacente. Contrario a lo ocurrido para los constructos de *Conflicto* y *Consenso*.
+
+H2: La hipotesis 2 no se verifica como consecuencia de que en el modelo que mejor representa la continuidad en empresas familiares el constructo *Proceso P* no se encuentra contenido.
+
+H3: La hipotesis 3 se verifica como consecuencia de que en el modelo que mejor representa la continuidad en empresas familiares el constructo *Consenso* se encuentra contenido.
+
+
+H4: La hipotesis 3 se verifica como consecuencia de que en el modelo que mejor representa la continuidad en empresas familiares el constructo *Conflicto* se encuentra contenido.
+
+## Grafico de las relaciones:
+```{r}
+# #Grafico para solo ver las Cargas
+
+semPaths(fit6, what = "path", whatLabels = "std", style = "lisrel", rotation = 2, layout = "tree2", mar = c(1, 2, 1, 2), nCharNodes = 10, shapeMan = "rectangle", sizeMan = 8, sizeMan2 = 6, edge.label.cex=1.5, residuals = TRUE)
+
+```
+
+Faltaria hablar un poco de esto y completar todo.

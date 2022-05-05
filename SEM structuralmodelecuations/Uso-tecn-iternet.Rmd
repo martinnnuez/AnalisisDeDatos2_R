@@ -1,0 +1,564 @@
+---
+title: "Proyecto de Análisis de Datos II - Actividad 1"
+author: ""
+date: "07/10/2021"
+output: html_document
+---
+
+```{r}
+library(lavaan)
+library(cSEM)
+library(listviewer)
+library(car)
+library(matrixpls)
+```
+
+# 1. Objetivo.
+
+Aplicar PLS SEM para determinar indices de beneficios por el uso de Internet (tecnologia):
+
+**Beneficios por el uso del internet**
+
+Se conocen distintas variables observables medidas en escala Likert de 1 (muy en desacuerdo) a 5 (muy de acuerdo) que forman 4 constructos capaces de explicar los beneficios que brinda el uso de internet. A partir de estos se quiere determinar un indice por medio de la metodologia PLS SEM.
+
+Se determinan los siguientes constructos: *BEN1*, *BEN2*, *BEN3* y *BEN4*.
+
+# 2. Hipotesis.
+
+**H1:**    Las variables directamente observables elegidas miden correctamente las variables latentes subyacentes en ellas.
+
+**H2:**    El constructo *BEN1* contribuye al indice de beneficios por el uso del internet.
+
+**H3:**    El constructo *BEN2* contribuye al indice de beneficios por el uso del internet.
+
+**H4:**    El constructo *BEN3* contribuye al indice de beneficios por el uso del internet.
+
+**H5:**    El constructo *BEN4* contribuye al indice de beneficios por el uso del internet.
+
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+# Cargamos los datos
+# Uso setwd() para setear mi working directory
+#setwd("C:/Users/Usuario/Google Drive (juancbellassai@mi.unc.edu.ar)/MEA/Cursos/4to Cuatri/Proyecto de Analisis de Datos II/Materiales/CB_SEM/Actividades")
+# setwd("D:/Bibliotecas/Documents/Fernando/M.E.A. 2020/Proyecto de Analisis de Datos II/PLS-20211007/Actividades")
+# setwd("C:/Users/marti/Desktop/Consultoria estadistica")
+datos<- readxl::read_xlsx("InternetPLS.xlsx")
+```
+
+# 3. Estimación de modelo SEM en dos etapas.
+
+En primer lugar se procedera a definir un modelo de referencia que incluya todos los constructos formados por todas las variables observables y una estructura formativa/reflectiva supuesta con el fin de ajustar un *base line*, para luego poder comparar con posteriores modelos competidores que se definirán sobre constructos formados por distintas variables observables o bien sobre una estructura formativa/reflectiva distinta.
+
+Consideramos que las metricas mas importantes para determinar si un modelo es aceptable o no son:
+### Para FORMATIVOS
+Probar la no colinealidad:
+- Calculo de **VIF** de indicadores formativos **(<5)**.
+- **Tolerancia (>0,2)** (solo observe R2 ajustado).
+- Magnitud y significatividad de los pesos y cargas de los indicadores Significativos y si son no significativos: > 0,50.
+
+### Ajuste Modelo de Medida
+- **AVE** y **R2adj.** cercanos a 1.
+- **Cronbachs_alpha >0.7**.
+- **Rho_C >0.7**.
+
+### Para el modelo ESTRUCTURAL:
+- Calculo de **VIF** de indicadores formativos **(<5)**.
+- Significancia de coeficientes de las relaciones estructurales. 
+- **R2adj.** de los constructos cercano a 1.
+- Tamaño del efecto **(f2)** > 0.35.
+
+## 3.1. Modelo de Referencia (*fit0*).
+
+Este modelo contempla los contructos formados por todas las variables observadas y una estructura donde BEN3 esta formado por BEN2 y BEN4 y a su vez BEN1 esta formado por BEN2, BEN4 y BEN3.
+
+## FIT 0
+```{r echo=TRUE, results='hide'}
+datos<-na.omit(datos) 
+  
+
+tecno0 <-'
+  ben1 <~ l2_1 + l2_9
+  ben2 <~ l2_4 + l2_5 + l2_12 
+  ben3 <~ l2_22 + l2_28 + l2_29
+  ben4 <~ l2_2 + l2_10 + l2_17
+
+  #Parte estructural
+  ben3~ben2+ben4
+  ben1~ben2+ben4+ben3
+  '
+
+  #Parámetros del algoritmo PLS
+pls0 <- csem(
+  .data = datos,
+  .model = tecno0,
+  .disattenuate = FALSE,
+  .iter_max= 300,
+  .tolerance= 1e-07,
+  .R= 200,
+  .resample_method = "bootstrap")
+  
+verify(pls0)
+
+#Descripción de ajuste general
+### Para FORMATIVOS
+# VIF
+calculateVIFModeB(pls0)
+
+# TOL
+Tol1 <-lm(l2_1~l2_9, data=datos)
+summary(Tol1) # NO CUMPLE
+
+Tol2 <-lm(l2_4~l2_5 + l2_12, data=datos)
+summary(Tol2)
+Tol2 <-lm(l2_5~l2_4 + l2_12, data=datos)
+summary(Tol2)
+Tol2 <-lm(l2_12~l2_4 + l2_5, data=datos)
+summary(Tol2) # NO CUMPLE
+
+Tol3 <-lm(l2_22 ~  l2_28 + l2_29, data=datos)
+summary(Tol3) # NO CUMPLE
+Tol3 <-lm(l2_28 ~  l2_22 + l2_29, data=datos)
+summary(Tol3) # NO CUMPLE
+Tol3 <-lm(l2_29 ~  l2_28 + l2_22, data=datos)
+summary(Tol3) # NO CUMPLE
+ 
+Tol4 <-lm(l2_2 ~ l2_10 + l2_17, data=datos)
+summary(Tol4) # NO CUMPLE
+Tol4 <-lm(l2_10 ~ l2_2 + l2_17, data=datos)
+summary(Tol4) # NO CUMPLE 
+Tol4 <-lm(l2_17 ~ l2_10 + l2_2, data=datos)
+summary(Tol4) # NO CUMPLE
+
+# Magnitud y significatividad de los pesos y cargas
+summarize(pls0)
+# ben4 <~ l2_17 Peso no significativo, coeficiente menor a 0.5 y carga muy cerca de ser no significativa.
+
+# ben3 =~ l2_28 Peso no significativo, coeficiente menor a 0.5 y carga muy cerca de ser no significativa.
+
+# Ajuste del modelo de medida:
+assess(pls0)
+
+
+
+
+
+#??cSEM::pls
+```
+
+### Para FORMATIVOS
+Probar la no colinealidad:
+- Calculo de **VIF** de indicadores formativos **(<5)**. CUMPLE
+
+- **Tolerancia (>0,2)** (solo observe R2 ajustado). NO CUMPLE
+
+- Magnitud y significatividad de los pesos y cargas de los indicadores Significativos y si son no significativos: > 0,50.
++ ben4 <~ l2_17 Peso no significativo, coeficiente menor a 0.5 y carga muy cerca de ser no significativa.
++ ben3 =~ l2_28 Peso no significativo, coeficiente menor a 0.5 y carga cerca de ser no significativa.
+
+### Ajuste Modelo de Medida
+- **AVE** y **R2adj.** cercanos a 1. AVE no reportado, R2adj cumple.
+
+- **Cronbachs_alpha >0.7**. no reportado.
+
+- **Rho_C >0.7**. no reportado.
+
+### Para el modelo ESTRUCTURAL:
+- Calculo de **VIF** de indicadores formativos **(<5)**. CUMPLE
+- Significancia de coeficientes de las relaciones estructurales. 
+ben1 ~ ben3 no significativo.
+ben3 ~ ben4 no significativo.
+ben1 ~ ben4 no significativo.
+ 
+- **R2adj.** de los constructos cercano a 1.
+
+- Tamaño del efecto **(f2)** > 0.35.
+ Dependent construct: 'ben3'
+
+	Independent construct       f^2    
+	ben2                      0.1411 pequeño
+	ben4                      0.0454 pequeño
+  
+  Dependent construct: 'ben1'
+
+	Independent construct       f^2    
+	ben2                      0.1483   pequeño
+	ben4                      0.0630   pequeño
+	ben3                      0.0834   pequeño
+
+### Conclusion:
+### Modelo formativo:
+Optamos por sacar l2_17 de ben4 y  l2_28 de ben3.
+
+### Modelo estructural:
+Se procedera a modificar la relacion estructural en funcion del resultado:
+ben3 ~ ben4 no significativo. 
+
+## FIT 1
+```{r echo=TRUE, results='hide'}
+tecno1 <-'
+  ben1 <~ l2_1 + l2_9
+  ben2 <~ l2_4 + l2_5 + l2_12 
+  ben3 <~ l2_22 + l2_29
+  ben4 <~ l2_2 + l2_10 
+
+  #Parte estructural
+  #Parte estructural
+  ben3~ben2
+  ben1~ben2+ben4+ben3
+  '
+
+  #Parámetros del algoritmo PLS
+pls1 <- csem(
+  .data = datos,
+  .model = tecno1,
+  .disattenuate = FALSE,
+  .iter_max= 300,
+  .tolerance= 1e-07,
+  .R= 200,
+  .resample_method = "bootstrap")
+  
+verify(pls1)
+
+#Descripción de ajuste general
+### Para FORMATIVOS
+# VIF
+calculateVIFModeB(pls1)
+
+# Magnitud y significatividad de los pesos y cargas
+summarize(pls1)
+
+# Ajuste del modelo de medida:
+assess(pls1)
+
+```
+### Para FORMATIVOS
+Probar la no colinealidad:
+- Calculo de **VIF** de indicadores formativos **(<5)**. CUMPLE
+
+- Magnitud y significatividad de los pesos y cargas de los indicadores Significativos y si son no significativos: > 0,50. CUMPLE
+
+### Ajuste Modelo de Medida
+- **AVE** y **R2adj.** cercanos a 1. AVE no reportado, R2adj cumple.
+
+- **Cronbachs_alpha >0.7**. no reportado.
+
+- **Rho_C >0.7**. no reportado.
+
+### Para el modelo ESTRUCTURAL:
+- Calculo de **VIF** de indicadores formativos **(<5)**. CUMPLE
+
+- Significancia de coeficientes de las relaciones estructurales. 
+ben1 ~ ben3 no significativo.
+ 
+- **R2adj.** de los constructos cercano a 1.
+
+- Tamaño del efecto **(f2)** > 0.35.
+  Dependent construct: 'ben3'
+
+	Independent construct       f^2    
+	ben2                      0.4541   grande
+
+  Dependent construct: 'ben1'
+
+	Independent construct       f^2    
+	ben2                      0.1405   pequeño
+	ben4                      0.0715   pequeño
+	ben3                      0.0920   pequeño
+
+### Conclusion:
+### Modelo formativo:
+Dejo como esta.
+
+### Modelo estructural:
+Se procedera a modificar la relacion estructural en funcion del resultado:
+ben1 ~ ben3 no significativo, si lo extraigo no me deja estimar.
+Cuando cambie a dependencia inversa (ben3 ~ ben1) tampoco me dejo estimar asique pienso en otro tipo de estructura intentando tener en cuenta los resultados anteriores.
+
+La parte formativa la dejo como esta y pruebo otra parte estructural:
+ben3 ~ ben4 no significativo. 
+ben1 ~ ben3 no significativo
+
+## FIT 2
+```{r echo=TRUE, results='hide'}
+tecno2 <-'
+  ben1 <~ l2_1 + l2_9
+  ben2 <~ l2_4 + l2_5 + l2_12 
+  ben3 <~ l2_22 + l2_29
+  ben4 <~ l2_2 + l2_10 
+
+  #Parte estructural
+  ben2~ben1+ben3+ben4
+  '
+
+  #Parámetros del algoritmo PLS
+pls2 <- csem(
+  .data = datos,
+  .model = tecno2,
+  .disattenuate = FALSE,
+  .iter_max= 300,
+  .tolerance= 1e-07,
+  .R= 200,
+  .resample_method = "bootstrap")
+  
+verify(pls2)
+
+#Descripción de ajuste general
+### Para FORMATIVOS
+# VIF
+calculateVIFModeB(pls2)
+
+# Magnitud y significatividad de los pesos y cargas
+summarize(pls2)
+
+# Ajuste del modelo de medida:
+assess(pls2)
+
+```
+### Para FORMATIVOS
+Probar la no colinealidad:
+- Calculo de **VIF** de indicadores formativos **(<5)**. CUMPLE
+
+- Magnitud y significatividad de los pesos y cargas de los indicadores Significativos y si son no significativos: > 0,50. CUMPLE
+
+### Ajuste Modelo de Medida
+- **AVE** y **R2adj.** cercanos a 1. AVE no reportado, R2adj cumple.
+
+- **Cronbachs_alpha >0.7**. no reportado.
+
+- **Rho_C >0.7**. no reportado.
+
+### Para el modelo ESTRUCTURAL:
+- Calculo de **VIF** de indicadores formativos **(<5)**. CUMPLE
+
+- Significancia de coeficientes de las relaciones estructurales. 
+ben2 ~ ben3   no significativo.
+ 
+- **R2adj.** de los constructos cercano a 1.
+
+- Tamaño del efecto **(f2)** > 0.35.
+
+  Dependent construct: 'ben2'
+
+	Independent construct       f^2    
+	ben1                      0.1673  pequeño 
+	ben3                      0.0531  pequeño
+	ben4                      0.2137  pequeño 
+
+### Conclusion:
+### Modelo formativo:
+Dejo como esta.
+
+### Modelo estructural:
+Se procedera a modificar la relacion estructural en funcion del resultado:
+ben2 ~ ben3 no significativo. Lo voy a poner al reves, porque en el modelo fit1 vi un tamaño del efecto grande en ben3 ~ ben2.
+
+## FIT 3
+```{r echo=TRUE, results='hide'}
+tecno3 <-'
+  ben1 <~ l2_1 + l2_9
+  ben2 <~ l2_4 + l2_5 + l2_12 
+  ben3 <~ l2_22 + l2_29
+  ben4 <~ l2_2 + l2_10 
+
+  #Parte estructural
+  ben2~ben1+ben4
+  ben3~ben2+ben1+ben4
+  '
+
+  #Parámetros del algoritmo PLS
+pls3 <- csem(
+  .data = datos,
+  .model = tecno3,
+  .disattenuate = FALSE,
+  .iter_max= 300,
+  .tolerance= 1e-07,
+  .R= 200,
+  .resample_method = "bootstrap")
+  
+verify(pls3)
+
+#Descripción de ajuste general
+### Para FORMATIVOS
+# VIF
+calculateVIFModeB(pls3)
+
+# Magnitud y significatividad de los pesos y cargas
+summarize(pls3)
+
+# Ajuste del modelo de medida:
+assess(pls3)
+
+```
+### Para FORMATIVOS
+Probar la no colinealidad:
+- Calculo de **VIF** de indicadores formativos **(<5)**. CUMPLE
+
+- Magnitud y significatividad de los pesos y cargas de los indicadores Significativos y si son no significativos: > 0,50. CUMPLE
+
+### Para el modelo ESTRUCTURAL:
+- Calculo de **VIF** de indicadores formativos **(<5)**. CUMPLE
+
+- Significancia de coeficientes de las relaciones estructurales. 
+Esta es la parte del modelo estructural que sigue sin cumplir.
+ 
+### Conclusion:
+### Modelo formativo:
+Generamos un cambio rotundo en la logica en que veniamos pensando.
+
+## FIT 4
+```{r}
+##### fit 2 pensamos algo formativo y algo reflectivo
+
+tecno4 <-'
+  ben1 <~ l2_1 + l2_9
+  ben2 <~ l2_4 + l2_5 + l2_12 
+  ben3 =~ l2_22 + l2_29
+  ben4 =~ l2_2 + l2_10 + l2_17
+
+  #Parte estructural
+  ben3~ben2+ben4
+  ben1~ben2+ben4+ben3
+  '
+
+  #Parámetros del algoritmo PLS
+pls4 <- csem(
+  .data = datos,
+  .model = tecno4,
+  .disattenuate = FALSE,
+  .iter_max= 300,
+  .tolerance= 1e-07,
+  .R= 200,
+  .resample_method = "bootstrap")
+  
+#Descripción de ajuste general
+verify(pls4)
+summarize(pls4)
+assess(pls4)
+```
+
+## FIT 5
+```{r}
+##### fit 3 sacamos l2_4 BEN2 (tampoco tiene l2_28 BEN3) y cambiamos la parte estructural
+
+tecno5 <-'
+  ben1 <~ l2_1 + l2_9
+  ben2 <~ l2_5 + l2_12 
+  ben3 =~ l2_22 + l2_29
+  ben4 =~ l2_2 + l2_10 + l2_17
+
+  #Parte estructural
+  ben2~ben3+ben4
+  ben1~ben2+ben4+ben3
+  '
+
+  #Parámetros del algoritmo PLS
+pls5 <- csem(
+  .data = datos,
+  .model = tecno3,
+  .disattenuate = FALSE,
+  .iter_max= 300,
+  .tolerance= 1e-07,
+  .R= 200,
+  .resample_method = "bootstrap")
+  
+#Descripción de ajuste general
+verify(pls5)
+summarize(pls5)
+assess(pls5)
+```
+
+## FIT 6
+```{r}
+##### fit 4 agregamos l2_4 BEN2
+
+tecno6 <-'
+  ben1 <~ l2_1 + l2_9
+  ben2 <~ l2_5 + l2_4 + l2_12 
+  ben3 =~ l2_22 + l2_29 
+  ben4 =~ l2_2 + l2_10 + l2_17
+
+  #Parte estructural
+  ben2~ben3+ben4
+  ben1~ben2+ben4+ben3
+  '
+
+  #Parámetros del algoritmo PLS
+pls6 <- csem(
+  .data = datos,
+  .model = tecno6,
+  .disattenuate = FALSE,
+  .iter_max= 300,
+  .tolerance= 1e-07,
+  .R= 200,
+  .resample_method = "bootstrap")
+  
+#Descripción de ajuste general
+### Para FORMATIVOS
+# VIF
+calculateVIFModeB(pls6)
+
+# Magnitud y significatividad de los pesos y cargas
+summarize(pls6)
+
+# Ajuste del modelo de medida:
+assess(pls6)
+
+```
+### Para FORMATIVOS
+Probar la no colinealidad:
+- Calculo de **VIF** de indicadores formativos **(<5)**. CUMPLE
+
+- Magnitud y significatividad de los pesos y cargas de los indicadores Significativos y si son no significativos: > 0,50. CUMPLE
+
+### Ajuste Modelo de Medida
+- **AVE** y **R2adj.** cercanos a 1. AVE no reportado, R2adj cumple.
+
+- **Cronbachs_alpha >0.7**. no reportado.
+
+- **Rho_C >0.7**. no reportado.
+
+### Para el modelo ESTRUCTURAL:
+- Calculo de **VIF** de indicadores formativos **(<5)**. CUMPLE
+
+- Significancia de coeficientes de las relaciones estructurales. 
+ben1 ~ ben3   no significativo para un alfa de 10%.
+ 
+- **R2adj.** de los constructos cercano a 1.
+
+- Tamaño del efecto **(f2)** > 0.35.
+  Dependent construct: 'ben2'
+
+	Independent construct       f^2    
+	ben3                      0.1896 mediano  
+	ben4                      0.4236 grande
+
+  Dependent construct: 'ben1'
+
+	Independent construct       f^2    
+	ben3                      0.0824   pequeño
+	ben4                      0.0767   pequeño
+	ben2                      0.1478   pequeño
+
+### Conclusion:
+Nos quedamos con este modelo por cumplir los requisitos tanto de la parte formativa como de la parte estructural.
+
+# Conclusiones.
+
+Seleccionamos el modelo *FIT 6* dado que es el que mejores métricas presenta. En el se contempla una estructura formativa donde ben1 y ben2 son constructos formativos y ben3 y ben4 son constructos reflectivos. Adema en la parte estructural se toma a ben2 formado por ben3 y ben4 y a su vez ben1 formado por todos los constructos presentes.
+
+H1: La hipotesis 1 no se verifica como consecuencia de que a lo largo del proceso de ajuste del modelo nos vimos forzados a eliminar el variables observables en los distintos constructos conciderdos.
+
+H2: La hipotesis 2 se verifica como consecuencia de que en el indice de beneficios por el uso del internet el constructo *BEN1* se encuentra contenido.
+
+H3: La hipotesis 3 se verifica como consecuencia de que en el indice de beneficios por el uso del internet el constructo *BEN3* se encuentra contenido.
+
+
+H4: La hipotesis 4 se verifica como consecuencia de que en el indice de beneficios por el uso del internet el constructo *BEN3* se encuentra contenido.
+
+H5: La hipotesis 5 se verifica como consecuencia de que en el indice de beneficios por el uso del internet el constructo *BEN4* se encuentra contenido.
+
+## Grafico de las relaciones:
+```{r}
+
+```
+
+Agregar grafico y concluir.
